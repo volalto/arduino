@@ -1,15 +1,16 @@
 
 /*
-* Simple attitude integrator for Arduino +  InvenSense MPU-5060
+* Simple attitude integrator for Arduino +  InvenSense MPU6050
 * by Tommaso Falchi Delitala (volalto86@gmail.com)
-* based on simple MPU-5060 by Jeff Rowberg
+* https://github.com/volalto/arduino
 *
 * The sketch outputs sensor attitude in deg*100 over serial port at 57600 bps.
 * Motion integration is performed at 100 Hz by considering gyrs data only. 
 * Serial output rate is adjustable by setting the OUT_INTERVAL constant.
 * Initial x,y attitude is estimated from accelerometers readings.
 *
-* Requires: I2CDev libs for MPU-5060 https://github.com/jrowberg/i2cdevlib
+* Based on MPU6050_raw example by Jeff Rowberg
+* Requires: I2CDev libs for MPU6050 https://github.com/jrowberg/i2cdevlib
 *
 * (c) Copyright 2013 Tommaso Falchi Delitala
 * This program is free software: you can redistribute it and/or modify
@@ -75,8 +76,8 @@ void setup()
   // Set gyro offsets (see my other sketch for offset calculation)
   // Gyro offsets must be set after every power cycle
   // My default values:-786, -277, 840, 0, 0, 0
-  accelgyro.setXGyroOffset(79);
-  accelgyro.setYGyroOffset(-42);
+  accelgyro.setXGyroOffset(80);
+  accelgyro.setYGyroOffset(-43);
   accelgyro.setZGyroOffset(-26);
 
   Serial.print("Internal sensor offsets...");
