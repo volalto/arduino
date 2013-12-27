@@ -4,9 +4,11 @@
 * by Tommaso Falchi Delitala (volalto86@gmail.com)
 * based on simple MPU-5060 by Jeff Rowberg
 *
-* The sketch outputs the platform attitude in deg*100 over serial port at 57600 bps.
-* Motion integration is performed at 100 Hz and output rate is adjustable by setting
-* the OUT_INTERVAL constant.
+* The sketch outputs sensor attitude in deg*100 over serial port at 57600 bps.
+* Motion integration is performed at 100 Hz by considering gyrs data only. 
+* Serial output rate is adjustable by setting the OUT_INTERVAL constant.
+* Initial x,y attitude is estimated from accelerometers readings.
+*
 * Requires: I2CDev libs for MPU-5060 https://github.com/jrowberg/i2cdevlib
 *
 * (c) Copyright 2013 Tommaso Falchi Delitala
@@ -20,6 +22,7 @@
 // for both classes must be in the include path of your project
 #include "I2Cdev.h"
 #include "MPU6050.h"
+#include "math.h"
 
 // Arduino Wire library is required if I2Cdev I2CDEV_ARDUINO_WIRE implementation
 // is used in I2Cdev.h
@@ -37,21 +40,16 @@
 MPU6050 accelgyro;
 //MPU6050 accelgyro(0x69); // <-- use for AD0 high
 
-int16_t w[3];
-long alpha[3];
+int16_t w[3]; // omega: angular velocity
+long alpha[3]; // alpha: angle
+// Time related values
 unsigned long t = 0, t_last = 0, last_print = 0, dt = 0;
 
-/* Scale factor for gyros:
-Full Scale Range    | LSB Sensitivity
---------------------+----------------
- +/- 250 degrees/s  | 131 LSB/deg/s
- +/- 500 degrees/s  | 65.5 LSB/deg/s
- +/- 1000 degrees/s | 32.8 LSB/deg/s
- +/- 2000 degrees/s | 16.4 LSB/deg/s
-*/
+// Scale factor for gyros ( 131 for range +/- 250 deg/s):
 const int scale = 131;
 
-void setup() {
+void setup() 
+{
   // join I2C bus (I2Cdev library doesn't do this automatically)
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
   Wire.begin();
@@ -90,14 +88,25 @@ void setup() {
   Serial.print(accelgyro.getZGyroOffset()); Serial.print("\t"); // 0
   Serial.print("\n");
 
-  // Init attitude using gravity vector
-  // TODO
+  // Estimate initial attitude
+  float alpha_x_start, alpha_y_start; 
+  estimateAttitudeAcc(&alpha_x_start, &alpha_y_start);
+  
+  Serial.print("Initial attitude estimation: alpha_x = ");
+  Serial.print(alpha_x_start);
+  Serial.print(" alpha_y = ");
+  Serial.println(alpha_y_start);
+  
+  // Convert float angles to raw values used by the integration algorithm
+  alpha[0] = alpha_x_start * 131.0E2;
+  alpha[1] = alpha_y_start * 131.0E2;
   
   // Init integration interval timer
   t_last = micros();
 }
 
-void loop() {
+void loop() 
+{
   // Get current time stamp
   t = micros();
 
@@ -110,7 +119,7 @@ void loop() {
   accelgyro.getRotation(&w[0], &w[1], &w[2]);
   t_last = t;
 
-  // Integration of raw values (scaled by 131E2)
+  // Integration of raw values (i.e. deg * 131E2)
   alpha[0] += w[0];
   alpha[1] += w[1];
   alpha[2] += w[2];
@@ -120,6 +129,22 @@ void loop() {
     printSerial();
     last_print = t;
   }
+}
+
+// Estimate attitude from accelerometers reading.
+// The sensor must be at rest
+// Output: alpha_x/y contains angles in deg
+void estimateAttitudeAcc(float *alpha_x, float *alpha_y) 
+{
+  // Init attitude using gravity vector
+  // x-z plane: alpha_y = atan2(ax, az)
+  // y-z plane: alpha_x = atan2(ay, az)
+  int16_t a[3];
+  memset(a, 0, sizeof(a));
+  accelgyro.getAcceleration(&a[0], &a[1], &a[2]);
+  
+  *alpha_x = atan2(a[1], a[2]) * 180/M_PI;  // x
+  *alpha_y = -atan2(a[0], a[2]) * 180/M_PI; // y
 }
 
 void printSerial()
@@ -132,6 +157,7 @@ void printSerial()
   Serial.println(clip180(alpha[2] / scale));
 }
 
+// Clip angle to +/- 180 deg 
 long clip180(long raw)
 {
   if (abs(raw) > 18000) {
