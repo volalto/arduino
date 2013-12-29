@@ -138,14 +138,23 @@ void loop()
 void estimateAttitudeAcc(float *alpha_x, float *alpha_y) 
 {
   // Init attitude using gravity vector
-  // x-z plane: alpha_y = atan2(ax, az)
-  // y-z plane: alpha_x = atan2(ay, az)
-  int16_t a[3];
-  memset(a, 0, sizeof(a));
-  accelgyro.getAcceleration(&a[0], &a[1], &a[2]);
+  // x: phi = atan(ay/az)
+  // y: theta = atan(-ax/sqrt(ay^2+az^2))
+  // Singularity for theta = +/- 90 deg
+  // Scale factor for range +/- 2 g -> 8192
+  #define ACC_GAIN 8192.0
+  
+  int16_t a_raw[3];
+  float a[3];
+  accelgyro.getAcceleration(&a_raw[0], &a_raw[1], &a_raw[2]);
+  
+  //Scaling
+  a[0] = a_raw[0] / ACC_GAIN;
+  a[1] = a_raw[1] / ACC_GAIN;
+  a[2] = a_raw[2] / ACC_GAIN;
   
   *alpha_x = atan2(a[1], a[2]) * 180/M_PI;  // x
-  *alpha_y = -atan2(a[0], a[2]) * 180/M_PI; // y
+  *alpha_y = atan2(-a[0], sqrt(a[1]*a[1] + a[2]*a[2])) * 180/M_PI; // y
 }
 
 void printSerial()
