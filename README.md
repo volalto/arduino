@@ -1,7 +1,7 @@
 arduino
 =======
 
-My experiments with Arduino.
+Playing around with Arduino.
 
 MPU6050_attitude_simple
 -----------------------
